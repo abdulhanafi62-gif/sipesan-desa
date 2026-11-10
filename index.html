@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="id" class="h-full bg-slate-50 text-slate-900">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIPESAN-DESA | Aplikasi Surat Pesanan Barang (SPB) & BAST Desa</title>
-  
+
   <!-- Google Fonts: Plus Jakarta Sans & Tinos (Surat Kedinasan) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tinos:ital,wght@400;700&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tinos:ital,wght@400;700&display=swap"
+    rel="stylesheet">
+
   <!-- Tailwind CSS (Offline Mode) -->
   <script src="tailwindcss.js"></script>
   <script>
@@ -54,12 +57,13 @@
       document.write('<script src="https://unpkg.com/lucide@latest"><\/script>');
     }
   </script>
-  
+
   <!-- Custom CSS for App & Official Print Styling -->
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="h-full font-sans antialiased text-slate-900 bg-slate-50 selection:bg-brand-500 selection:text-white">
-  
+
   <div id="app" class="min-h-screen flex flex-col">
     <!-- Dynamic Content Rendered Here by app.js -->
   </div>
@@ -74,7 +78,11 @@
   <!-- Embedded Offline Logos -->
   <script src="logos.js"></script>
 
+  <!-- Master Katalog Standar RAB 2026 Desa -->
+  <script src="rab-data.js"></script>
+
   <!-- Main Application Script -->
-  <script src="app.js?v=28"></script>
+  <script src="app.js?v=30"></script>
 </body>
+
 </html>

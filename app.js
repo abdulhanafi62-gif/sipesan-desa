@@ -102,14 +102,20 @@ const defaultData = {
       rekening: '0081-01-002345-50-1'
     }
   ],
-  masterBarang: [
-    { id: 'mb-1', namaBarang: 'Semen PCC (50 kg)', spesifikasi: 'Standar SNI, Merk Holcim / Gresik', satuan: 'Sak', hargaSatuan: 72000 },
-    { id: 'mb-2', namaBarang: 'Pasir Pasang / Pasir Beton', spesifikasi: 'Pasir Lokal Kualitas Super Bebas Lumpur', satuan: 'M3', hargaSatuan: 220000 },
-    { id: 'mb-3', namaBarang: 'Batu Belah / Batu Kali', spesifikasi: 'Ukuran 15/20 cm untuk Pondasi & Talud', satuan: 'M3', hargaSatuan: 250000 },
-    { id: 'mb-4', namaBarang: 'Besi Beton 10 mm (SNI)', spesifikasi: 'Panjang 12 Meter Polos', satuan: 'Batang', hargaSatuan: 85000 },
-    { id: 'mb-5', namaBarang: 'Laptop Operasional Desa', spesifikasi: 'Intel Core i5, RAM 16GB, SSD 512GB, Win 11 Ori', satuan: 'Unit', hargaSatuan: 10500000 },
-    { id: 'mb-6', namaBarang: 'Printer Ink Tank Multifungsi', spesifikasi: 'Print, Scan, Copy, Wi-Fi Ink Tank System', satuan: 'Unit', hargaSatuan: 3250000 }
-  ],
+  masterBarang: (typeof window !== 'undefined' && window.RAB_KATALOG_2026 && window.RAB_KATALOG_2026.length > 0)
+    ? window.RAB_KATALOG_2026
+    : [
+        { id: 'mb-1', namaBarang: 'Kertas Hvs A4', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Rim', hargaSatuan: 130000, kategori: 'Alat Tulis Kantor (ATK) & Cetak' },
+        { id: 'mb-2', namaBarang: 'Kertas Hvs F4', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Rim', hargaSatuan: 100000, kategori: 'Alat Tulis Kantor (ATK) & Cetak' },
+        { id: 'mb-3', namaBarang: 'Pulpen', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Kotak', hargaSatuan: 60000, kategori: 'Alat Tulis Kantor (ATK) & Cetak' },
+        { id: 'mb-4', namaBarang: 'Balok Ulin 5x10', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'M3', hargaSatuan: 7000000, kategori: 'Bahan Bangunan & Material Fisik' },
+        { id: 'mb-5', namaBarang: 'Balok Ulin 5x10 (Gelegar Atas)', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Potong', hargaSatuan: 140000, kategori: 'Bahan Bangunan & Material Fisik' },
+        { id: 'mb-6', namaBarang: 'Balok Ulin 10x10', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Potong', hargaSatuan: 320000, kategori: 'Bahan Bangunan & Material Fisik' },
+        { id: 'mb-7', namaBarang: 'Papan Ulin', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Lembar', hargaSatuan: 125000, kategori: 'Bahan Bangunan & Material Fisik' },
+        { id: 'mb-8', namaBarang: 'Semen', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Sak', hargaSatuan: 120000, kategori: 'Bahan Bangunan & Material Fisik' },
+        { id: 'mb-9', namaBarang: 'Nasi Kotak', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Kotak', hargaSatuan: 35000, kategori: 'Konsumsi, Makanan & Minuman' },
+        { id: 'mb-10', namaBarang: 'Tisu', spesifikasi: 'Standar RAB APBDes 2026', satuan: 'Pak', hargaSatuan: 20000, kategori: 'Kebersihan & Perlengkapan Rumah Tangga' }
+      ],
   suratPesanan: [
     {
       id: 'sp-001',
@@ -213,6 +219,11 @@ function sanitizeAppData(raw) {
   const rawPelaksana = (profilDesa && profilDesa.pelaksanaList) ? profilDesa.pelaksanaList : defaultData.profilDesa.pelaksanaList;
   const pelaksanaList = ensureArray(rawPelaksana);
 
+  const rawMb = ensureArray(raw.masterBarang);
+  const fallbackCatalog = (typeof window !== 'undefined' && window.RAB_KATALOG_2026 && window.RAB_KATALOG_2026.length > 0)
+    ? window.RAB_KATALOG_2026
+    : defaultData.masterBarang;
+
   return {
     profilDesa: {
       ...defaultData.profilDesa,
@@ -220,7 +231,7 @@ function sanitizeAppData(raw) {
       pelaksanaList: pelaksanaList.length > 0 ? pelaksanaList : defaultData.profilDesa.pelaksanaList
     },
     suppliers: ensureArray(raw.suppliers).length > 0 ? ensureArray(raw.suppliers) : defaultData.suppliers,
-    masterBarang: ensureArray(raw.masterBarang).length > 0 ? ensureArray(raw.masterBarang) : defaultData.masterBarang,
+    masterBarang: (rawMb.length >= 20) ? rawMb : fallbackCatalog,
     suratPesanan: ensureArray(raw.suratPesanan),
     bastList: ensureArray(raw.bastList),
     papanProyekList: ensureArray(raw.papanProyekList).length > 0 ? ensureArray(raw.papanProyekList) : (defaultData.papanProyekList || [])
@@ -304,6 +315,14 @@ function loadAppData() {
           needsSave = true;
         }
       });
+    }
+
+    // Auto-populate 2026 RAB catalog if not yet loaded or still has old dummy data
+    if (typeof window !== 'undefined' && window.RAB_KATALOG_2026 && window.RAB_KATALOG_2026.length > 0) {
+      if (!parsed.masterBarang || parsed.masterBarang.length < 20) {
+        parsed.masterBarang = window.RAB_KATALOG_2026;
+        needsSave = true;
+      }
     }
 
     if (needsSave) {
@@ -862,6 +881,11 @@ let appState = {
   activePelaksanaId: loadSavedPelaksanaId(),
   showFridayReminder: false,
   filterTahunPapan: 'all',
+  showRabPickerModal: false,
+  rabSearchQuery: '',
+  rabActiveCategory: 'all',
+  masterBarangSearchQuery: '',
+  masterBarangActiveCategory: 'all',
 };
 
 function setFilterTahunPapan(tahun) {
@@ -1113,6 +1137,7 @@ function renderApp() {
     ${appState.confirmModal ? renderConfirmModalHtml() : ''}
     ${appState.showFridayReminder ? renderFridayReminderModalHtml() : ''}
     ${cloudState.showModal ? renderCloudModalHtml() : ''}
+    ${appState.showRabPickerModal ? renderRabPickerModalHtml() : ''}
   `;
 
     lucide.createIcons();
@@ -1727,41 +1752,61 @@ function renderSupplierView() {
 
       <!-- Section Master Katalog Barang -->
       <div class="space-y-4 pt-4 border-t border-slate-200">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Katalog Acuan Barang & Material</h2>
-            <p class="text-slate-500 text-xs">Master data harga acuan bahan bangunan/ATK/peralatan desa</p>
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl font-bold text-slate-900 tracking-tight">Katalog Acuan Barang & Material</h2>
+              <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded-full">${(appState.data.masterBarang || []).length} Barang</span>
+            </div>
+            <p class="text-slate-500 text-xs">Master data harga acuan bahan bangunan, ATK, konsumsi, dan peralatan desa (RAB Perubahan TA 2026)</p>
           </div>
-          <button onclick="toggleBarangModal(true)" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition flex items-center gap-1.5 shadow-sm">
-            <i data-lucide="plus" class="w-4 h-4"></i> Tambah Master Barang
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="reloadDefaultRabCatalog()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition flex items-center gap-1.5" title="Muat ulang seluruh data 292 barang standar resmi Siskeudes RAB 2026">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Reset ke RAB 2026
+            </button>
+            <button onclick="toggleBarangModal(true)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="plus" class="w-4 h-4"></i> Tambah Manual
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search for Master Barang -->
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+          <div class="relative flex-1 w-full">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              value="${appState.masterBarangSearchQuery || ''}" 
+              oninput="onMasterBarangSearch(this.value)" 
+              placeholder="Cari nama barang di katalog acuan..." 
+              class="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 focus:border-blue-600 focus:outline-none"
+            >
+          </div>
+          <select onchange="onMasterBarangCategoryChange(this.value)" class="w-full sm:w-auto bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold focus:border-blue-600">
+            <option value="all">Semua Kategori</option>
+            ${getDistinctRabCategories().map(cat => `
+              <option value="${cat}" ${appState.masterBarangActiveCategory === cat ? 'selected' : ''}>${cat}</option>
+            `).join('')}
+          </select>
         </div>
 
         <div class="glass-card rounded-2xl border border-slate-200 overflow-hidden shadow-sm bg-white">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-              <tr>
-                <th class="px-5 py-3.5">Nama Barang / Material</th>
-                <th class="px-5 py-3.5">Satuan</th>
-                <th class="px-5 py-3.5 text-right">Harga Acuan</th>
-                <th class="px-5 py-3.5 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 text-slate-700">
-              ${appState.data.masterBarang.map(mb => `
-                <tr class="hover:bg-blue-50/50">
-                  <td class="px-5 py-3 font-bold text-slate-900">${mb.namaBarang}</td>
-                  <td class="px-5 py-3 text-xs font-mono font-bold text-blue-600">${mb.satuan}</td>
-                  <td class="px-5 py-3 text-right font-mono font-bold text-slate-900">${formatRupiah(mb.hargaSatuan)}</td>
-                  <td class="px-5 py-3 text-center">
-                    <button onclick="deleteMasterBarang('${mb.id}')" class="p-1 text-slate-400 hover:text-red-600 rounded transition">
-                      <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                  </td>
+          <div class="max-h-[500px] overflow-y-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                <tr>
+                  <th class="px-5 py-3.5">Nama Barang / Material</th>
+                  <th class="px-5 py-3.5">Kategori</th>
+                  <th class="px-5 py-3.5">Satuan</th>
+                  <th class="px-5 py-3.5 text-right">Harga Acuan</th>
+                  <th class="px-5 py-3.5 text-center">Aksi</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody class="divide-y divide-slate-200 text-slate-700">
+                ${renderMasterBarangTableRowsHtml()}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1826,10 +1871,26 @@ function renderSupplierView() {
             <label class="block text-xs font-bold text-slate-600 mb-1">Nama Barang / Material</label>
             <input type="text" id="mb-namaBarang" placeholder="Contoh: Semen PCC (50kg)" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
           </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1">Kategori Belanja</label>
+            <select id="mb-kategori" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none">
+              <option value="Bahan Bangunan & Material Fisik">Bahan Bangunan & Material Fisik</option>
+              <option value="Alat Tulis Kantor (ATK) & Cetak">Alat Tulis Kantor (ATK) & Cetak</option>
+              <option value="Kebersihan & Perlengkapan Rumah Tangga">Kebersihan & Perlengkapan Rumah Tangga</option>
+              <option value="Konsumsi, Makanan & Minuman">Konsumsi, Makanan & Minuman</option>
+              <option value="Peralatan, Mesin & Sewa Alat">Peralatan, Mesin & Sewa Alat</option>
+              <option value="Peralatan & Barang Lainnya">Peralatan & Barang Lainnya</option>
+              <option value="Pakaian, Seragam & Perlengkapan">Pakaian, Seragam & Perlengkapan</option>
+              <option value="Alat Listrik & Elektronik">Alat Listrik & Elektronik</option>
+              <option value="Bahan Bakar & Minyak (BBM)">Bahan Bakar & Minyak (BBM)</option>
+              <option value="Pertanian & Peternakan">Pertanian & Peternakan</option>
+              <option value="Kesehatan & Posyandu">Kesehatan & Posyandu</option>
+            </select>
+          </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Satuan</label>
-              <input type="text" id="mb-satuan" placeholder="Sak / M3 / Unit" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="mb-satuan" placeholder="Sak / M3 / Unit / Rim" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Harga Acuan (Rp)</label>
@@ -1892,10 +1953,12 @@ function deleteSupplier(id) {
 
 function saveNewBarang(e) {
   e.preventDefault();
+  const katEl = document.getElementById('mb-kategori');
   const newMb = {
     id: 'mb-' + Date.now(),
     namaBarang: document.getElementById('mb-namaBarang').value,
-    spesifikasi: document.getElementById('mb-spesifikasi').value,
+    spesifikasi: 'Diinput Manual',
+    kategori: katEl ? katEl.value : 'Lainnya',
     satuan: document.getElementById('mb-satuan').value,
     hargaSatuan: Number(document.getElementById('mb-hargaSatuan').value) || 0
   };
@@ -1907,6 +1970,73 @@ function saveNewBarang(e) {
     }
   });
   toggleBarangModal(false);
+}
+
+function onMasterBarangSearch(val) {
+  appState.masterBarangSearchQuery = val;
+  renderApp();
+}
+
+function onMasterBarangCategoryChange(val) {
+  appState.masterBarangActiveCategory = val;
+  renderApp();
+}
+
+function reloadDefaultRabCatalog() {
+  if (typeof window !== 'undefined' && window.RAB_KATALOG_2026 && window.RAB_KATALOG_2026.length > 0) {
+    showConfirmModal('Reset Katalog ke RAB 2026?', 'Ini akan mengembalikan seluruh 292 data barang acuan standar resmi Siskeudes Perubahan 2026.', () => {
+      setState({
+        data: {
+          ...appState.data,
+          masterBarang: window.RAB_KATALOG_2026
+        },
+        confirmModal: null
+      });
+    });
+  }
+}
+
+function renderMasterBarangTableRowsHtml() {
+  const master = ensureArray(appState.data.masterBarang);
+  const q = (appState.masterBarangSearchQuery || '').toLowerCase().trim();
+  const cat = appState.masterBarangActiveCategory || 'all';
+
+  const filtered = master.filter(mb => {
+    if (cat !== 'all' && mb.kategori !== cat) return false;
+    if (!q) return true;
+    const n = (mb.namaBarang || '').toLowerCase();
+    const k = (mb.kategori || '').toLowerCase();
+    const s = (mb.satuan || '').toLowerCase();
+    return n.includes(q) || k.includes(q) || s.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    return `
+      <tr>
+        <td colspan="5" class="px-5 py-8 text-center text-slate-400 text-xs">
+          Tidak ada barang yang sesuai dengan pencarian / filter kategori.
+        </td>
+      </tr>
+    `;
+  }
+
+  return filtered.map(mb => `
+    <tr class="hover:bg-blue-50/50">
+      <td class="px-5 py-3 font-bold text-slate-900">${mb.namaBarang}</td>
+      <td class="px-5 py-3 text-xs">
+        <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold ${getCategoryBadgeColor(mb.kategori)}">
+          ${mb.kategori || 'Acuan'}
+        </span>
+      </td>
+      <td class="px-5 py-3 text-xs font-mono font-bold text-blue-600">${mb.satuan}</td>
+      <td class="px-5 py-3 text-right font-mono font-bold text-slate-900">${formatRupiah(mb.hargaSatuan)}</td>
+      <td class="px-5 py-3 text-center">
+        <button onclick="deleteMasterBarang('${mb.id}')" class="p-1 text-slate-400 hover:text-red-600 rounded transition" title="Hapus Barang">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function deleteMasterBarang(id) {
@@ -2186,19 +2316,27 @@ function renderSpFormView() {
 
         <!-- Dynamic Items Table -->
         <div class="glass-card rounded-2xl p-6 border border-slate-200 space-y-4 bg-white">
-          <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h3 class="text-base font-bold text-blue-700 flex items-center gap-2">
-              <i data-lucide="shopping-cart" class="w-5 h-5"></i> Rincian Barang / Material yang Dipesan
-            </h3>
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+            <div>
+              <h3 class="text-base font-bold text-blue-700 flex items-center gap-2">
+                <i data-lucide="shopping-cart" class="w-5 h-5"></i> Rincian Barang / Material yang Dipesan
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Pilih barang acuan resmi dari RAB Perubahan 2026 atau ketik manual</p>
+            </div>
             
-            <div class="flex items-center gap-2">
-              <select id="select-katalog-quick" onchange="addQuickItemFromKatalog(this)" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-semibold focus:bg-white focus:border-blue-600">
-                <option value="">+ Pilih dari Katalog Acuan</option>
-                ${appState.data.masterBarang.map(mb => `
-                  <option value="${mb.id}">${mb.namaBarang} (${formatRupiah(mb.hargaSatuan)})</option>
-                `).join('')}
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" onclick="openRabPickerModal()" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/25 flex items-center gap-2 transform active:scale-95">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-300"></i>
+                <span>🏷️ Pilih dari Katalog RAB 2026 (Tinggal Klik)</span>
+                <span class="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-extrabold">${(appState.data.masterBarang || []).length} Barang</span>
+              </button>
+
+              <select id="select-katalog-quick" onchange="addQuickItemFromKatalog(this)" class="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-700 font-semibold focus:bg-white focus:border-blue-600 max-w-[210px] truncate">
+                <option value="">+ Menu Dropdown Cepat...</option>
+                ${renderKatalogOptionsGrouped()}
               </select>
-              <button type="button" onclick="addSpFormRow()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 flex items-center gap-1">
+
+              <button type="button" onclick="addSpFormRow()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 flex items-center gap-1">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i> Baris Kosong
               </button>
             </div>
@@ -2327,14 +2465,21 @@ function addSpFormRow() {
 function removeSpFormRow(idx) {
   tempFormItems.splice(idx, 1);
   document.getElementById('sp-items-body').innerHTML = renderSpFormItemsHtml();
+  const terbilangText = document.getElementById('sp-terbilang-text');
+  const grandtotalText = document.getElementById('sp-grandtotal-text');
+  if (terbilangText) terbilangText.innerText = terbilang(calcTempItemsSubtotal());
+  if (grandtotalText) grandtotalText.innerText = formatRupiah(calcTempItemsSubtotal());
   lucide.createIcons();
 }
 
 function addQuickItemFromKatalog(selectEl) {
   const itemId = selectEl.value;
   if (!itemId) return;
-  const mb = appState.data.masterBarang.find(b => b.id === itemId);
+  const mb = (appState.data.masterBarang || []).find(b => b.id === itemId);
   if (mb) {
+    if (tempFormItems.length === 1 && (!tempFormItems[0].namaBarang || tempFormItems[0].namaBarang.trim() === '')) {
+      tempFormItems = [];
+    }
     tempFormItems.push({
       namaBarang: mb.namaBarang,
       volume: 1,
@@ -2343,9 +2488,345 @@ function addQuickItemFromKatalog(selectEl) {
       total: mb.hargaSatuan
     });
     document.getElementById('sp-items-body').innerHTML = renderSpFormItemsHtml();
+    const terbilangText = document.getElementById('sp-terbilang-text');
+    const grandtotalText = document.getElementById('sp-grandtotal-text');
+    if (terbilangText) terbilangText.innerText = terbilang(calcTempItemsSubtotal());
+    if (grandtotalText) grandtotalText.innerText = formatRupiah(calcTempItemsSubtotal());
     lucide.createIcons();
   }
   selectEl.value = '';
+}
+
+// ==========================================
+// KATALOG RAB 2026 PICKER & MODAL SYSTEM
+// ==========================================
+
+function getDistinctRabCategories() {
+  const master = ensureArray(appState.data.masterBarang);
+  const catSet = new Set();
+  master.forEach(m => {
+    if (m.kategori) catSet.add(m.kategori);
+  });
+  const list = Array.from(catSet);
+  if (list.length === 0) {
+    return [
+      'Alat Tulis Kantor (ATK) & Cetak',
+      'Bahan Bangunan & Material Fisik',
+      'Kebersihan & Perlengkapan Rumah Tangga',
+      'Konsumsi, Makanan & Minuman',
+      'Peralatan, Mesin & Sewa Alat',
+      'Peralatan & Barang Lainnya',
+      'Pakaian, Seragam & Perlengkapan',
+      'Alat Listrik & Elektronik',
+      'Bahan Bakar & Minyak (BBM)',
+      'Pertanian & Peternakan',
+      'Kesehatan & Posyandu'
+    ];
+  }
+  return list.sort();
+}
+
+function getCategoryBadgeColor(kategori) {
+  const cat = kategori || '';
+  if (cat.includes('ATK') || cat.includes('Tulis')) return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (cat.includes('Bangunan') || cat.includes('Material')) return 'bg-amber-100 text-amber-800 border-amber-200';
+  if (cat.includes('Kebersihan') || cat.includes('Rumah Tangga')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (cat.includes('Konsumsi') || cat.includes('Makanan')) return 'bg-orange-100 text-orange-800 border-orange-200';
+  if (cat.includes('Peralatan') || cat.includes('Mesin')) return 'bg-purple-100 text-purple-800 border-purple-200';
+  if (cat.includes('Pakaian') || cat.includes('Seragam')) return 'bg-pink-100 text-pink-800 border-pink-200';
+  if (cat.includes('Listrik') || cat.includes('Elektronik')) return 'bg-yellow-100 text-yellow-900 border-yellow-200';
+  if (cat.includes('BBM') || cat.includes('Bakar')) return 'bg-red-100 text-red-800 border-red-200';
+  if (cat.includes('Pertanian') || cat.includes('Peternakan')) return 'bg-lime-100 text-lime-800 border-lime-200';
+  if (cat.includes('Kesehatan') || cat.includes('Posyandu')) return 'bg-teal-100 text-teal-800 border-teal-200';
+  return 'bg-slate-100 text-slate-800 border-slate-200';
+}
+
+function renderKatalogOptionsGrouped() {
+  const master = ensureArray(appState.data.masterBarang);
+  const groups = {};
+  master.forEach(item => {
+    const cat = item.kategori || 'Katalog Acuan';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(item);
+  });
+  return Object.keys(groups).sort().map(cat => `
+    <optgroup label="${cat} (${groups[cat].length})">
+      ${groups[cat].map(it => `
+        <option value="${it.id}">${it.namaBarang} - ${formatRupiah(it.hargaSatuan)} / ${it.satuan}</option>
+      `).join('')}
+    </optgroup>
+  `).join('');
+}
+
+function openRabPickerModal() {
+  appState.showRabPickerModal = true;
+  appState.rabSearchQuery = '';
+  appState.rabActiveCategory = 'all';
+  renderApp();
+  setTimeout(() => {
+    const el = document.getElementById('rab-search-input');
+    if (el) el.focus();
+  }, 100);
+}
+
+function closeRabPickerModal() {
+  appState.showRabPickerModal = false;
+  renderApp();
+}
+
+function setRabModalCategory(cat) {
+  appState.rabActiveCategory = cat;
+  document.querySelectorAll('.rab-cat-pill').forEach(btn => {
+    const isThis = btn.getAttribute('data-cat') === cat;
+    if (isThis) {
+      btn.className = 'rab-cat-pill px-3 py-1.5 rounded-full text-xs font-bold bg-blue-600 text-white shadow-sm whitespace-nowrap transition cursor-pointer';
+    } else {
+      btn.className = 'rab-cat-pill px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 whitespace-nowrap transition cursor-pointer';
+    }
+  });
+  const grid = document.getElementById('rab-modal-grid');
+  if (grid) {
+    grid.innerHTML = renderRabModalItemsGridHtml();
+    lucide.createIcons();
+  }
+}
+
+function onRabModalSearch(query) {
+  appState.rabSearchQuery = query || '';
+  const grid = document.getElementById('rab-modal-grid');
+  if (grid) {
+    grid.innerHTML = renderRabModalItemsGridHtml();
+    lucide.createIcons();
+  }
+}
+
+function getFilteredRabItems() {
+  const master = ensureArray(appState.data.masterBarang);
+  const cat = appState.rabActiveCategory || 'all';
+  const query = (appState.rabSearchQuery || '').trim().toLowerCase();
+
+  return master.filter(item => {
+    if (cat !== 'all' && item.kategori !== cat) return false;
+    if (!query) return true;
+    const n = (item.namaBarang || '').toLowerCase();
+    const k = (item.kategori || '').toLowerCase();
+    const s = (item.satuan || '').toLowerCase();
+    const sp = (item.spesifikasi || '').toLowerCase();
+    return n.includes(query) || k.includes(query) || s.includes(query) || sp.includes(query);
+  });
+}
+
+function renderRabModalItemsGridHtml() {
+  const items = getFilteredRabItems();
+  if (items.length === 0) {
+    return `
+      <div class="col-span-full py-12 text-center text-slate-500">
+        <i data-lucide="search-x" class="w-12 h-12 mx-auto text-slate-300 mb-2"></i>
+        <p class="font-bold text-sm text-slate-700">Barang tidak ditemukan</p>
+        <p class="text-xs text-slate-400 mt-1">Coba gunakan kata kunci pencarian yang lebih umum atau klik kategori lain.</p>
+      </div>
+    `;
+  }
+
+  return items.map(it => {
+    const badgeColor = getCategoryBadgeColor(it.kategori);
+    return `
+      <div class="bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md rounded-2xl p-3.5 transition-all flex flex-col justify-between group">
+        <div class="space-y-1.5">
+          <div class="flex items-start justify-between gap-1.5">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeColor} truncate max-w-[170px]" title="${it.kategori || ''}">
+              ${it.kategori || 'Barang Acuan'}
+            </span>
+            <span class="text-[11px] font-mono font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+              /${it.satuan}
+            </span>
+          </div>
+          <h4 class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-blue-700 transition leading-snug line-clamp-2" title="${it.namaBarang}">
+            ${it.namaBarang}
+          </h4>
+        </div>
+
+        <div class="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div>
+            <div class="text-[10px] text-slate-500 font-medium">Harga Satuan RAB</div>
+            <div class="text-xs sm:text-sm font-extrabold text-emerald-700 font-mono">
+              ${formatRupiah(it.hargaSatuan)}
+            </div>
+          </div>
+          <button type="button" onclick="addRabItemToOrder('${it.id}', this)" class="rab-add-btn px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 shadow-sm shrink-0">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>Pilih</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function addRabItemToOrder(itemId, btnEl) {
+  const master = ensureArray(appState.data.masterBarang);
+  const it = master.find(m => m.id === itemId);
+  if (!it) return;
+
+  if (tempFormItems.length === 1 && (!tempFormItems[0].namaBarang || tempFormItems[0].namaBarang.trim() === '')) {
+    tempFormItems = [];
+  }
+
+  tempFormItems.push({
+    namaBarang: it.namaBarang,
+    volume: 1,
+    satuan: it.satuan,
+    hargaSatuan: it.hargaSatuan,
+    total: it.hargaSatuan
+  });
+
+  const tbody = document.getElementById('sp-items-body');
+  if (tbody) {
+    tbody.innerHTML = renderSpFormItemsHtml();
+  }
+  const terbilangEl = document.getElementById('sp-terbilang-text');
+  if (terbilangEl) {
+    terbilangEl.textContent = terbilang(calcTempItemsSubtotal());
+  }
+  const totalEl = document.getElementById('sp-grandtotal-text');
+  if (totalEl) {
+    totalEl.textContent = formatRupiah(calcTempItemsSubtotal());
+  }
+
+  const countEl = document.getElementById('rab-modal-selected-count');
+  if (countEl) {
+    countEl.textContent = `${tempFormItems.length} Barang`;
+  }
+  const totalModalEl = document.getElementById('rab-modal-selected-total');
+  if (totalModalEl) {
+    totalModalEl.textContent = formatRupiah(calcTempItemsSubtotal());
+  }
+
+  if (btnEl) {
+    const origHtml = btnEl.innerHTML;
+    btnEl.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 inline"></i> Terpilih!';
+    btnEl.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+    btnEl.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+    if (window.lucide) lucide.createIcons();
+    setTimeout(() => {
+      btnEl.innerHTML = origHtml;
+      btnEl.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+      btnEl.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      if (window.lucide) lucide.createIcons();
+    }, 1200);
+  }
+}
+
+function renderRabPickerModalHtml() {
+  const master = ensureArray(appState.data.masterBarang);
+  const categories = getDistinctRabCategories();
+  const activeCat = appState.rabActiveCategory || 'all';
+
+  return `
+    <div id="modal-rab-picker" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4">
+      <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+        
+        <!-- Modal Header -->
+        <div class="p-4 sm:p-5 border-b border-slate-200 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center text-amber-300 shadow-inner">
+              <i data-lucide="book-open" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-bold text-base sm:text-lg tracking-tight">Katalog RAB Perubahan TA 2026</h3>
+                <span class="bg-amber-400 text-slate-950 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">Resmi APBDes</span>
+              </div>
+              <p class="text-xs text-blue-200">Tinggal klik barang di bawah untuk langsung memasukkannya ke Surat Pesanan Barang (SPB)</p>
+            </div>
+          </div>
+          <button onclick="closeRabPickerModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Search & Filter Controls -->
+        <div class="p-4 border-b border-slate-200 bg-slate-50/80 space-y-3 shrink-0">
+          <!-- Search input -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input 
+              type="text" 
+              id="rab-search-input" 
+              value="${appState.rabSearchQuery || ''}" 
+              oninput="onRabModalSearch(this.value)" 
+              placeholder="Ketik nama barang / material (misal: HVS A4, Balok Ulin, Semen, Snack, Solar, Map, Spidol)..." 
+              class="w-full bg-white border border-slate-300 rounded-2xl pl-10 pr-10 py-2.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 focus:outline-none transition"
+            >
+            ${appState.rabSearchQuery ? `
+              <button onclick="onRabModalSearch(''); document.getElementById('rab-search-input').value = '';" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            ` : ''}
+          </div>
+
+          <!-- Category filter pills -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+            <button 
+              type="button" 
+              data-cat="all" 
+              onclick="setRabModalCategory('all')" 
+              class="rab-cat-pill px-3 py-1.5 rounded-full text-xs font-bold transition whitespace-nowrap cursor-pointer ${activeCat === 'all' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}"
+            >
+              Semua (${master.length})
+            </button>
+            ${categories.map(cat => {
+              const count = master.filter(m => m.kategori === cat).length;
+              const isActive = activeCat === cat;
+              return `
+                <button 
+                  type="button" 
+                  data-cat="${cat}" 
+                  onclick="setRabModalCategory('${cat}')" 
+                  class="rab-cat-pill px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap cursor-pointer ${isActive ? 'bg-blue-600 text-white font-bold shadow-sm' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}"
+                >
+                  ${cat} (${count})
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Scrollable Items Grid -->
+        <div class="flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-100/50">
+          <div id="rab-modal-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3.5">
+            ${renderRabModalItemsGridHtml()}
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 sm:p-5 border-t border-slate-200 bg-white flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center gap-4 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500 font-medium">Barang di SP:</span>
+              <span id="rab-modal-selected-count" class="font-extrabold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                ${tempFormItems.length} Barang
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500 font-medium">Total Nilai:</span>
+              <span id="rab-modal-selected-total" class="font-mono font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                ${formatRupiah(calcTempItemsSubtotal())}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <button type="button" onclick="closeRabPickerModal()" class="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Selesai Memilih</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
 }
 
 function saveSpForm(e) {
