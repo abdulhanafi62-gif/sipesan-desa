@@ -68,16 +68,18 @@ const defaultData = {
     kadesNip: '19750412 200501 1 003',
     sekdesNama: 'BUDI SANTOSO, S.T.',
     sekdesNip: '19820815 201001 1 005',
-    ppkdNama: 'DRA. HANIFAH KURNIA',
-    ppkdNip: '19850320 201102 2 001',
+    ppkdNama: 'Abdul Hanafi',
+    ppkdNip: '-',
     ppkdJabatan: 'Kaur Keuangan / PPKD',
     tpkNama: 'Agus Salim',
     tpkJabatan: 'Ketua Tim Pengelola Kegiatan (TPK)',
     pelaksanaList: [
       { id: 'pk-1', nama: 'Agus Salim', jabatan: 'Ketua Tim Pengelola Kegiatan (TPK)', nip: '-' },
-      { id: 'pk-2', nama: 'HENDRA', jabatan: 'Kasi Kesejahteraan (Pelaksana Kegiatan)', nip: '-' },
-      { id: 'pk-3', nama: 'SITI RAHMAWATI, S.E.', jabatan: 'Kaur Pembangunan / Ekbang', nip: '19900315 201402 2 003' },
-      { id: 'pk-4', nama: 'BAMBANG HERMANTO', jabatan: 'Kasi Pemerintahan (Pelaksana Kegiatan)', nip: '-' }
+      { id: 'pk-2', nama: 'Hendra', jabatan: 'Kasi Kesejahteraan (Pelaksana Kegiatan)', nip: '-' },
+      { id: 'pk-3', nama: 'Risnawati', jabatan: 'Kasi Pelayanan (Pelaksana Kegiatan)', nip: '-' },
+      { id: 'pk-4', nama: 'Aco', jabatan: 'Kasi Pemerintahan (Pelaksana Kegiatan)', nip: '-' },
+      { id: 'pk-5', nama: 'Rusli', jabatan: 'Kaur Umum dan Perencanaan (Pelaksana Kegiatan)', nip: '-' },
+      { id: 'pk-6', nama: 'Abdul Hanafi', jabatan: 'Kaur Keuangan (Pelaksana Kegiatan)', nip: '-' }
     ]
   },
   suppliers: [
@@ -250,18 +252,38 @@ function loadAppData() {
     parsed = sanitizeAppData(parsed);
     let needsSave = false;
 
+    if (!parsed.profilDesa) {
+      parsed.profilDesa = JSON.parse(JSON.stringify(defaultData.profilDesa));
+      needsSave = true;
+    }
+
+    if (!parsed.profilDesa.ppkdNama || parsed.profilDesa.ppkdNama.toUpperCase().includes('HANIFAH')) {
+      parsed.profilDesa.ppkdNama = 'Abdul Hanafi';
+      parsed.profilDesa.ppkdJabatan = 'Kaur Keuangan / PPKD';
+      needsSave = true;
+    }
+
     if (!parsed.profilDesa.pelaksanaList || parsed.profilDesa.pelaksanaList.length === 0) {
-      parsed.profilDesa.pelaksanaList = defaultData.profilDesa.pelaksanaList;
+      parsed.profilDesa.pelaksanaList = JSON.parse(JSON.stringify(defaultData.profilDesa.pelaksanaList));
       needsSave = true;
     } else {
-      // Auto-migrate legacy dummy name 'Widodo' or 'Wibowo' in pelaksana
-      parsed.profilDesa.pelaksanaList.forEach(pk => {
-        if (pk.nama && (pk.nama.toUpperCase().includes('WIDODO') || pk.nama.toUpperCase().includes('WIBOWO'))) {
-          pk.nama = 'Agus Salim';
-          pk.jabatan = 'Ketua Tim Pengelola Kegiatan (TPK)';
-          needsSave = true;
-        }
-      });
+      const hasMockSiti = parsed.profilDesa.pelaksanaList.some(p => p.nama && p.nama.toUpperCase().includes('SITI RAHMAWATI'));
+      const hasMockBambang = parsed.profilDesa.pelaksanaList.some(p => p.nama && p.nama.toUpperCase().includes('BAMBANG HERMANTO'));
+      const hasRisnawati = parsed.profilDesa.pelaksanaList.some(p => p.nama && p.nama.toUpperCase().includes('RISNAWATI'));
+      
+      // Auto-migrate legacy mock names to official 2026 village officials
+      if (hasMockSiti || hasMockBambang || !hasRisnawati || parsed.profilDesa.pelaksanaList.length < 5) {
+        parsed.profilDesa.pelaksanaList = JSON.parse(JSON.stringify(defaultData.profilDesa.pelaksanaList));
+        needsSave = true;
+      } else {
+        parsed.profilDesa.pelaksanaList.forEach(pk => {
+          if (pk.nama && (pk.nama.toUpperCase().includes('WIDODO') || pk.nama.toUpperCase().includes('WIBOWO'))) {
+            pk.nama = 'Agus Salim';
+            pk.jabatan = 'Ketua Tim Pengelola Kegiatan (TPK)';
+            needsSave = true;
+          }
+        });
+      }
     }
 
     // Auto-migrate legacy template dummy email / alamat
@@ -1635,13 +1657,13 @@ function renderProfilView() {
                 ${pelaksanaList.map((pk, idx) => `
                   <tr>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.nama || ''}" onchange="updatePelaksanaField(${idx}, 'nama', this.value)" placeholder="Nama Pejabat" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.nama || ''}" oninput="updatePelaksanaField(${idx}, 'nama', this.value)" onchange="updatePelaksanaField(${idx}, 'nama', this.value)" placeholder="Nama Pejabat" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:border-blue-600">
                     </td>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.jabatan || ''}" onchange="updatePelaksanaField(${idx}, 'jabatan', this.value)" placeholder="Contoh: Kasi Kesejahteraan" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.jabatan || ''}" oninput="updatePelaksanaField(${idx}, 'jabatan', this.value)" onchange="updatePelaksanaField(${idx}, 'jabatan', this.value)" placeholder="Contoh: Kasi Kesejahteraan" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-blue-600">
                     </td>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.nip || '-'}" onchange="updatePelaksanaField(${idx}, 'nip', this.value)" placeholder="NIP" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.nip || '-'}" oninput="updatePelaksanaField(${idx}, 'nip', this.value)" onchange="updatePelaksanaField(${idx}, 'nip', this.value)" placeholder="NIP" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:border-blue-600">
                     </td>
                     <td class="px-3 py-2 text-center">
                       <button type="button" onclick="removePelaksanaProfilRow(${idx})" class="p-1 text-slate-400 hover:text-red-600 rounded">
@@ -1684,6 +1706,29 @@ function removePelaksanaProfilRow(idx) {
 
 function saveProfilDesa(e) {
   if (e) e.preventDefault();
+
+  // Read all pelaksana rows directly from the table inputs to guarantee nothing is missed
+  const rows = document.querySelectorAll('#profil-pelaksana-body tr');
+  const pelaksanaList = [];
+  rows.forEach((row, idx) => {
+    const inputs = row.querySelectorAll('input');
+    if (inputs.length >= 3) {
+      const nama = inputs[0].value.trim();
+      const jabatan = inputs[1].value.trim();
+      const nip = inputs[2].value.trim() || '-';
+      const existingId = (appState.data.profilDesa.pelaksanaList && appState.data.profilDesa.pelaksanaList[idx])
+        ? appState.data.profilDesa.pelaksanaList[idx].id
+        : ('pk-' + (idx + 1));
+      if (nama || jabatan) {
+        pelaksanaList.push({ id: existingId, nama, jabatan, nip });
+      }
+    }
+  });
+
+  const finalPelaksanaList = pelaksanaList.length > 0
+    ? pelaksanaList
+    : (appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList);
+
   const newProfil = {
     ...appState.data.profilDesa,
     kabupaten: document.getElementById('p-kabupaten').value,
@@ -1697,7 +1742,7 @@ function saveProfilDesa(e) {
     kadesNip: document.getElementById('p-kadesNip').value,
     ppkdNama: document.getElementById('p-ppkdNama').value,
     ppkdNip: document.getElementById('p-ppkdNip').value,
-    pelaksanaList: appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList
+    pelaksanaList: finalPelaksanaList
   };
 
   setState({
@@ -1707,7 +1752,7 @@ function saveProfilDesa(e) {
     }
   });
 
-  alert('Profil Desa & Daftar Pejabat Pemesan berhasil disimpan!');
+  alert('Profil Desa & Daftar Pejabat Pemesan berhasil disimpan dan disinkronkan ke Cloud!');
 }
 
 // --- VIEW: MASTER SUPPLIER & BARANG ---
