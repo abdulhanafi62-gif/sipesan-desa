@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50 text-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIPESAN-DESA | Aplikasi Surat Pesanan Barang (SPB) & BAST Desa</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans & Tinos (Surat Kedinasan) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tinos:ital,wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS (Offline Mode) -->
+  <script src="tailwindcss.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['Tinos', 'Georgia', 'serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+              950: '#172554',
+            },
+            gov: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN / Local Offline Fallback -->
+  <script src="lucide.min.js"></script>
+  <script>
+    if (typeof lucide === 'undefined') {
+      document.write('<script src="https://unpkg.com/lucide@latest"><\/script>');
+    }
+  </script>
+  
+  <!-- Custom CSS for App & Official Print Styling -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="h-full font-sans antialiased text-slate-900 bg-slate-50 selection:bg-brand-500 selection:text-white">
+  
+  <div id="app" class="min-h-screen flex flex-col">
+    <!-- Dynamic Content Rendered Here by app.js -->
+  </div>
+
+  <!-- Firebase SDK (Google Cloud Realtime Database) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Firebase Cloud Config -->
+  <script src="firebase-config.js"></script>
+
+  <!-- Embedded Offline Logos -->
+  <script src="logos.js"></script>
+
+  <!-- Main Application Script -->
+  <script src="app.js?v=26"></script>
+</body>
+</html>

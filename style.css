@@ -1,0 +1,221 @@
+/* Custom Styles for SIPESAN-DESA Application (Aesthetic Blue & White Theme) */
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Glassmorphism & Soft Panel Utilities */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(37, 99, 235, 0.05), 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(147, 197, 253, 0.8);
+  box-shadow: 0 14px 35px -5px rgba(37, 99, 235, 0.1), 0 6px 16px -2px rgba(0, 0, 0, 0.04);
+}
+
+/* Gradient Text & Badges */
+.gradient-text {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-header-bg {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 40%, #3b82f6 100%);
+}
+
+/* Micro-animations */
+.nav-tab-btn {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-tab-btn:hover {
+  transform: translateY(-1px);
+}
+
+.nav-tab-btn:active {
+  transform: translateY(0);
+}
+
+/* Pulse Glow Status Indicator */
+.pulse-dot {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+}
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background-color: #10b981;
+  opacity: 0.75;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.pulse-dot-core {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background-color: #10b981;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Kop Surat Official Lines */
+.kop-line-double {
+  border-bottom: 3px solid #000;
+  position: relative;
+}
+.kop-line-double::after {
+  content: '';
+  display: block;
+  border-bottom: 1px solid #000;
+  margin-top: 2px;
+}
+
+/* Print CSS Configurations - Fixed Truncation & Page Height Optimization */
+@media print {
+  html, body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: 'Tinos', 'Times New Roman', serif !important;
+    font-size: 9.5pt !important;
+    line-height: 1.2 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide UI components completely */
+  .no-print, header, nav, footer, button, .modal-backdrop, #json-file-input {
+    display: none !important;
+  }
+
+  /* Reset layout constraints from fixed modal overlays */
+  #app {
+    display: block !important;
+    min-height: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .fixed, .inset-0, .overflow-y-auto, .max-h-\[92vh\], .no-print-backdrop {
+    position: static !important;
+    overflow: visible !important;
+    max-height: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .print-area-wrapper {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .print-page {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    page-break-after: auto;
+  }
+
+  /* Table rules for print */
+  .print-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    page-break-inside: auto !important;
+  }
+  .print-table tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+  .print-table th, .print-table td {
+    border: 1px solid #000000 !important;
+    padding: 2px 4px !important;
+    color: #000000 !important;
+    font-size: 9pt !important;
+  }
+
+  /* Prevent page breaks inside signature blocks */
+  .signature-block, .print-avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm 12mm 8mm 12mm;
+  }
+}
+
+/* Papan Proyek 1x1 Meter Print Container */
+.papan-print-container {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media print {
+  .papan-print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 0 auto !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+  }
+}
+
