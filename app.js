@@ -202,7 +202,10 @@ const defaultData = {
       pelaksana: 'Tim Pengelola Kegiatan (TPK)',
       tanggalDibuat: '2026-08-01'
     }
-  ]
+  ],
+  adminSecurity: {
+    adminPin: '123456'
+  }
 };
 
 function ensureArray(val) {
@@ -226,7 +229,12 @@ function sanitizeAppData(raw) {
     ? window.RAB_KATALOG_2026
     : defaultData.masterBarang;
 
+  const adminSec = (raw && raw.adminSecurity && raw.adminSecurity.adminPin)
+    ? { adminPin: String(raw.adminSecurity.adminPin).trim() }
+    : { adminPin: (localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || DEFAULT_ADMIN_PIN) };
+
   return {
+    adminSecurity: adminSec,
     profilDesa: {
       ...defaultData.profilDesa,
       ...profilDesa,
@@ -251,6 +259,10 @@ function loadAppData() {
     let parsed = JSON.parse(local);
     parsed = sanitizeAppData(parsed);
     let needsSave = false;
+
+    if (parsed.adminSecurity && parsed.adminSecurity.adminPin) {
+      localStorage.setItem(ADMIN_PIN_STORAGE_KEY, parsed.adminSecurity.adminPin);
+    }
 
     if (!parsed.profilDesa) {
       parsed.profilDesa = JSON.parse(JSON.stringify(defaultData.profilDesa));
@@ -461,6 +473,9 @@ function initFirebaseCloud() {
         if (remoteData && remoteData.profilDesa) {
           isRemoteUpdate = true;
           const cleanData = sanitizeAppData(remoteData);
+          if (cleanData.adminSecurity && cleanData.adminSecurity.adminPin) {
+            localStorage.setItem(ADMIN_PIN_STORAGE_KEY, cleanData.adminSecurity.adminPin);
+          }
           appState.data = cleanData;
           saveAppDataLocalOnly(cleanData);
           cloudState.lastSync = new Date();
@@ -552,6 +567,9 @@ function downloadDataFromCloud() {
         const remoteData = snap.val();
         if (remoteData && remoteData.profilDesa) {
           const cleanData = sanitizeAppData(remoteData);
+          if (cleanData.adminSecurity && cleanData.adminSecurity.adminPin) {
+            localStorage.setItem(ADMIN_PIN_STORAGE_KEY, cleanData.adminSecurity.adminPin);
+          }
           appState.data = cleanData;
           saveAppDataLocalOnly(cleanData);
           cloudState.status = 'synced';
@@ -899,7 +917,27 @@ const ADMIN_SESSION_KEY = 'SIPESAN_ADMIN_LOGGED_IN_V1';
 const DEFAULT_ADMIN_PIN = '123456';
 
 function getStoredAdminPin() {
-  return localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || DEFAULT_ADMIN_PIN;
+  const localPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY);
+  if (localPin && localPin.trim()) {
+    return localPin.trim();
+  }
+  if (appState && appState.data && appState.data.adminSecurity && appState.data.adminSecurity.adminPin) {
+    const cloudPin = String(appState.data.adminSecurity.adminPin).trim();
+    if (cloudPin) {
+      localStorage.setItem(ADMIN_PIN_STORAGE_KEY, cloudPin);
+      return cloudPin;
+    }
+  }
+  return DEFAULT_ADMIN_PIN;
+}
+
+function saveAdminPin(newPin) {
+  const pin = String(newPin).trim();
+  localStorage.setItem(ADMIN_PIN_STORAGE_KEY, pin);
+  if (!appState.data) appState.data = {};
+  if (!appState.data.adminSecurity) appState.data.adminSecurity = {};
+  appState.data.adminSecurity.adminPin = pin;
+  saveAppData(appState.data);
 }
 
 function isAdminLoggedIn() {
@@ -910,8 +948,9 @@ function loginAdmin(inputPin, rememberMe = false) {
   const currentPin = getStoredAdminPin();
   const clean = (inputPin || '').trim();
 
-  // Allow saved PIN or built-in developer fallbacks
-  if (clean === currentPin || clean === '123456' || clean === 'admin2026' || clean === 'desa2026' || clean === 'tanjungmanis') {
+  // STRICT VALIDATION: ONLY the current active PIN is accepted!
+  // If the admin has changed the PIN, the old 123456 is completely rejected.
+  if (clean && clean === currentPin) {
     sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
     if (rememberMe) {
       localStorage.setItem(ADMIN_SESSION_KEY, 'true');
@@ -987,7 +1026,7 @@ function submitChangeAdminPin(e) {
   const confirmPin = document.getElementById('change-pin-confirm').value.trim();
 
   const currentPin = getStoredAdminPin();
-  if (oldPin !== currentPin && oldPin !== '123456' && oldPin !== 'admin2026') {
+  if (oldPin !== currentPin) {
     alert('PIN Lama tidak sesuai! Silakan periksa kembali.');
     return;
   }
@@ -1000,10 +1039,10 @@ function submitChangeAdminPin(e) {
     return;
   }
 
-  localStorage.setItem(ADMIN_PIN_STORAGE_KEY, newPin);
+  saveAdminPin(newPin);
   appState.showChangePinModal = false;
   renderApp();
-  alert('PIN Administrator berhasil diperbarui! Simpan PIN ini baik-baik.');
+  alert('PIN Administrator BERHASIL DIUBAH!\n\nMulai sekarang, HANYA PIN baru yang dapat digunakan. PIN lama 123456 sudah dinonaktifkan.');
 }
 
 function togglePinVisibility(inputId, btnEl) {
@@ -1153,6 +1192,9 @@ function renderFridayReminderModalHtml() {
 function renderAdminLoginModalHtml() {
   if (!appState.showAdminLoginModal) return '';
 
+  const activePin = getStoredAdminPin();
+  const isDefaultPin = (activePin === DEFAULT_ADMIN_PIN);
+
   return `
     <div id="modal-admin-login" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
       <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
@@ -1185,7 +1227,7 @@ function renderAdminLoginModalHtml() {
               <input 
                 type="password" 
                 id="admin-pin-input" 
-                placeholder="Masukkan PIN (Default: 123456)" 
+                placeholder="${isDefaultPin ? 'Masukkan PIN (Default: 123456)' : 'Masukkan PIN Administrator Anda'}" 
                 class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-4 pr-10 py-2.5 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center"
                 required
                 autocomplete="current-password"
@@ -1213,7 +1255,11 @@ function renderAdminLoginModalHtml() {
             <div class="font-bold flex items-center gap-1 text-slate-800">
               <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> Informasi PIN:
             </div>
-            <p>PIN default adalah <code class="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-blue-700">123456</code>. Setelah masuk, Anda dapat mengganti PIN ini kapan saja.</p>
+            ${isDefaultPin ? `
+              <p>PIN default adalah <code class="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-blue-700">123456</code>. Setelah masuk, Anda dapat mengganti PIN ini kapan saja.</p>
+            ` : `
+              <p class="text-emerald-700 font-medium flex items-center gap-1"><i data-lucide="shield-check" class="w-3.5 h-3.5 inline"></i> PIN kustom aktif. PIN default 123456 sudah dinonaktifkan permanen.</p>
+            `}
           </div>
 
           <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
@@ -1253,8 +1299,8 @@ function renderChangePinModalHtml() {
 
         <form onsubmit="submitChangeAdminPin(event)" class="space-y-3.5">
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">PIN Lama</label>
-            <input type="password" id="change-pin-old" placeholder="Masukkan PIN lama (Default: 123456)" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center" required>
+            <label class="block text-xs font-bold text-slate-700 mb-1">PIN Lama Saat Ini</label>
+            <input type="password" id="change-pin-old" placeholder="Masukkan PIN lama yang sedang aktif" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center" required>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">PIN Baru (Minimal 4 angka / huruf)</label>
@@ -5347,7 +5393,11 @@ function importDataJson(e) {
           alert(`Berhasil menggabungkan data! (+${newSp.length} SPB baru, +${newBast.length} BAST baru, +${newPapan.length} Plang Proyek baru)`);
         } else {
           // Replace All Data Logic
-          setState({ data: imported });
+          const sanitized = sanitizeAppData(imported);
+          if (sanitized.adminSecurity && sanitized.adminSecurity.adminPin) {
+            localStorage.setItem(ADMIN_PIN_STORAGE_KEY, sanitized.adminSecurity.adminPin);
+          }
+          setState({ data: sanitized });
           alert('Seluruh data SIPESAN-DESA berhasil diganti dengan file impor!');
         }
       } else {
