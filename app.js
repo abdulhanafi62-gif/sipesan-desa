@@ -197,20 +197,47 @@ const defaultData = {
   ]
 };
 
+function ensureArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') return Object.values(val);
+  return [];
+}
+
+function sanitizeAppData(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return JSON.parse(JSON.stringify(defaultData));
+  }
+
+  const profilDesa = raw.profilDesa || defaultData.profilDesa;
+  const rawPelaksana = (profilDesa && profilDesa.pelaksanaList) ? profilDesa.pelaksanaList : defaultData.profilDesa.pelaksanaList;
+  const pelaksanaList = ensureArray(rawPelaksana);
+
+  return {
+    profilDesa: {
+      ...defaultData.profilDesa,
+      ...profilDesa,
+      pelaksanaList: pelaksanaList.length > 0 ? pelaksanaList : defaultData.profilDesa.pelaksanaList
+    },
+    suppliers: ensureArray(raw.suppliers).length > 0 ? ensureArray(raw.suppliers) : defaultData.suppliers,
+    masterBarang: ensureArray(raw.masterBarang).length > 0 ? ensureArray(raw.masterBarang) : defaultData.masterBarang,
+    suratPesanan: ensureArray(raw.suratPesanan),
+    bastList: ensureArray(raw.bastList),
+    papanProyekList: ensureArray(raw.papanProyekList).length > 0 ? ensureArray(raw.papanProyekList) : (defaultData.papanProyekList || [])
+  };
+}
+
 function loadAppData() {
   const local = localStorage.getItem(STORAGE_KEY);
   if (!local) {
-    saveAppData(defaultData);
-    return JSON.parse(JSON.stringify(defaultData));
+    const fresh = JSON.parse(JSON.stringify(defaultData));
+    saveAppData(fresh);
+    return fresh;
   }
   try {
-    const parsed = JSON.parse(local);
+    let parsed = JSON.parse(local);
+    parsed = sanitizeAppData(parsed);
     let needsSave = false;
-
-    if (!parsed.profilDesa) {
-      parsed.profilDesa = defaultData.profilDesa;
-      needsSave = true;
-    }
 
     if (!parsed.profilDesa.pelaksanaList || parsed.profilDesa.pelaksanaList.length === 0) {
       parsed.profilDesa.pelaksanaList = defaultData.profilDesa.pelaksanaList;
@@ -277,11 +304,6 @@ function loadAppData() {
           needsSave = true;
         }
       });
-    }
-
-    if (!parsed.papanProyekList || parsed.papanProyekList.length === 0) {
-      parsed.papanProyekList = defaultData.papanProyekList || [];
-      needsSave = true;
     }
 
     if (needsSave) {
@@ -397,8 +419,9 @@ function initFirebaseCloud() {
         const remoteData = snapshot.val();
         if (remoteData && remoteData.profilDesa) {
           isRemoteUpdate = true;
-          appState.data = remoteData;
-          saveAppDataLocalOnly(remoteData);
+          const cleanData = sanitizeAppData(remoteData);
+          appState.data = cleanData;
+          saveAppDataLocalOnly(cleanData);
           cloudState.lastSync = new Date();
           cloudState.status = 'synced';
           cloudState.errorMessage = null;
@@ -487,8 +510,9 @@ function downloadDataFromCloud() {
       if (snap.exists()) {
         const remoteData = snap.val();
         if (remoteData && remoteData.profilDesa) {
-          appState.data = remoteData;
-          saveAppDataLocalOnly(remoteData);
+          const cleanData = sanitizeAppData(remoteData);
+          appState.data = cleanData;
+          saveAppDataLocalOnly(cleanData);
           cloudState.status = 'synced';
           cloudState.lastSync = new Date();
           renderApp();
@@ -954,7 +978,8 @@ function renderApp() {
   const container = document.getElementById('app');
   if (!container) return;
 
-  container.innerHTML = `
+  try {
+    container.innerHTML = `
     <!-- Top Header & Menu Navigation System -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print shadow-md">
       <!-- Tier 1: Brand Logo, Mode Active Pelaksana, and Quick Action Buttons -->
@@ -1090,7 +1115,28 @@ function renderApp() {
     ${cloudState.showModal ? renderCloudModalHtml() : ''}
   `;
 
-  lucide.createIcons();
+    lucide.createIcons();
+  } catch (err) {
+    console.error('Fatal render error:', err);
+    container.innerHTML = `
+      <div class="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-red-200 rounded-3xl p-8 max-w-md w-full text-center shadow-xl space-y-4">
+          <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto text-2xl font-bold">⚠️</div>
+          <h2 class="text-xl font-bold text-slate-900">Tampilan Sedang Diperbarui</h2>
+          <p class="text-xs text-slate-500">${err.message || 'Halaman mengalami kendala render.'}</p>
+          <div class="pt-2 flex flex-col sm:flex-row justify-center gap-2">
+            <button onclick="navigateTo('dashboard')" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md">
+              Buka Dashboard
+            </button>
+            <button onclick="window.location.reload()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200">
+              Muat Ulang
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    try { lucide.createIcons(); } catch (e) {}
+  }
 }
 
 function navigateTo(viewName, extraState = {}) {
@@ -1119,25 +1165,31 @@ function renderCurrentView() {
 
 // --- VIEW: DASHBOARD ---
 function renderDashboardView() {
-  const pelaksanaList = appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList;
-  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p.id === appState.activePelaksanaId) : null;
+  const data = appState.data || {};
+  const suratPesanan = ensureArray(data.suratPesanan);
+  const bastList = ensureArray(data.bastList);
+  const suppliers = ensureArray(data.suppliers);
+  const profilDesa = data.profilDesa || defaultData.profilDesa;
+  const pelaksanaList = ensureArray(profilDesa.pelaksanaList);
+  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p && p.id === appState.activePelaksanaId) : null;
 
   const spFiltered = activePk 
-    ? appState.data.suratPesanan.filter(s => s.pemesanNama && s.pemesanNama === activePk.nama)
-    : appState.data.suratPesanan;
+    ? suratPesanan.filter(s => s && s.pemesanNama && s.pemesanNama === activePk.nama)
+    : suratPesanan;
 
   const bastFiltered = activePk 
-    ? appState.data.bastList.filter(b => {
-        const sp = appState.data.suratPesanan.find(s => s.id === b.spId);
+    ? bastList.filter(b => {
+        if (!b) return false;
+        const sp = suratPesanan.find(s => s && s.id === b.spId);
         if (!sp) return false;
         return (sp.pemesanNama && sp.pemesanNama === activePk.nama) || (b.ketuaTpk && b.ketuaTpk === activePk.nama);
       })
-    : appState.data.bastList;
+    : bastList;
 
   const totalSp = spFiltered.length;
   const totalBast = bastFiltered.length;
-  const totalNilaiSp = spFiltered.reduce((acc, curr) => acc + (curr.grandTotal || 0), 0);
-  const totalSupplier = appState.data.suppliers.length;
+  const totalNilaiSp = spFiltered.reduce((acc, curr) => acc + (curr ? (curr.grandTotal || 0) : 0), 0);
+  const totalSupplier = suppliers.length;
 
   return `
     <div class="space-y-8">
@@ -1388,8 +1440,9 @@ function renderDashboardView() {
                   <td colspan="6" class="px-5 py-8 text-center text-slate-400">Belum ada dokumen Surat Pesanan yang dibuat.</td>
                 </tr>
               ` : spFiltered.map(sp => {
-                const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
-                const hasBast = appState.data.bastList.some(b => b.spId === sp.id);
+                if (!sp) return '';
+                const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
+                const hasBast = bastList.some(b => b && b.spId === sp.id);
                 return `
                   <tr class="hover:bg-blue-50/50 transition">
                     <td class="px-5 py-4">
@@ -1873,12 +1926,17 @@ function deleteMasterBarang(id) {
 
 // --- VIEW: SURAT PESANAN (SP) LIST ---
 function renderSpListView() {
-  const pelaksanaList = appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList;
-  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p.id === appState.activePelaksanaId) : null;
+  const data = appState.data || {};
+  const suratPesanan = ensureArray(data.suratPesanan);
+  const bastList = ensureArray(data.bastList);
+  const suppliers = ensureArray(data.suppliers);
+  const profilDesa = data.profilDesa || defaultData.profilDesa;
+  const pelaksanaList = ensureArray(profilDesa.pelaksanaList);
+  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p && p.id === appState.activePelaksanaId) : null;
 
   const spListFiltered = activePk 
-    ? appState.data.suratPesanan.filter(s => s.pemesanNama && s.pemesanNama === activePk.nama)
-    : appState.data.suratPesanan;
+    ? suratPesanan.filter(s => s && s.pemesanNama && s.pemesanNama === activePk.nama)
+    : suratPesanan;
 
   return `
     <div class="space-y-6">
@@ -1926,8 +1984,9 @@ function renderSpListView() {
               ${spListFiltered.length === 0 ? `
                 <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">Belum ada Surat Pesanan Barang yang terbuat untuk filter ini.</td></tr>
               ` : spListFiltered.map(sp => {
-                const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
-                const hasBast = appState.data.bastList.some(b => b.spId === sp.id);
+                if (!sp) return '';
+                const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
+                const hasBast = bastList.some(b => b && b.spId === sp.id);
                 return `
                   <tr class="hover:bg-blue-50/50">
                     <td class="px-5 py-4">
@@ -1981,14 +2040,16 @@ function renderSpListView() {
 }
 
 function deleteSp(id) {
-  const sp = appState.data.suratPesanan.find(s => s.id === id);
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const bastList = ensureArray(appState.data.bastList);
+  const sp = suratPesanan.find(s => s && s.id === id);
   const nomor = sp ? sp.nomorSp : 'Surat Pesanan ini';
   showConfirmModal('Hapus Surat Pesanan?', `Yakin ingin menghapus Surat Pesanan ${nomor}? Semua BAST terkait juga akan dihapus.`, () => {
     setState({
       data: {
         ...appState.data,
-        suratPesanan: appState.data.suratPesanan.filter(s => s.id !== id),
-        bastList: appState.data.bastList.filter(b => b.spId !== id)
+        suratPesanan: suratPesanan.filter(s => s && s.id !== id),
+        bastList: bastList.filter(b => b && b.spId !== id)
       },
       confirmModal: null
     });
@@ -2000,8 +2061,10 @@ let tempFormItems = [];
 
 function renderSpFormView() {
   const isEdit = !!appState.editingSpId;
-  const sp = isEdit ? appState.data.suratPesanan.find(s => s.id === appState.editingSpId) : null;
-  const pelaksanaList = appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList;
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const sp = isEdit ? suratPesanan.find(s => s && s.id === appState.editingSpId) : null;
+  const profilDesa = appState.data.profilDesa || defaultData.profilDesa;
+  const pelaksanaList = ensureArray(profilDesa.pelaksanaList).length > 0 ? ensureArray(profilDesa.pelaksanaList) : defaultData.profilDesa.pelaksanaList;
 
   if (sp && tempFormItems.length === 0) {
     tempFormItems = JSON.parse(JSON.stringify(sp.items || []));
@@ -2012,11 +2075,11 @@ function renderSpFormView() {
   }
 
   const defaultSelectedPkId = sp 
-    ? (pelaksanaList.find(p => p.nama === sp.pemesanNama)?.id || 'custom')
+    ? (pelaksanaList.find(p => p && p.nama === sp.pemesanNama)?.id || 'custom')
     : (appState.activePelaksanaId !== 'all' ? appState.activePelaksanaId : (pelaksanaList[0] ? pelaksanaList[0].id : 'custom'));
-  const currentPkObj = pelaksanaList.find(p => p.id === defaultSelectedPkId) || pelaksanaList[0] || {};
+  const currentPkObj = pelaksanaList.find(p => p && p.id === defaultSelectedPkId) || pelaksanaList[0] || {};
 
-  const generateNomorDefault = `027/${String(appState.data.suratPesanan.length + 1).padStart(3, '0')}/SP/TPK-DS/${new Date().getFullYear()}`;
+  const generateNomorDefault = `027/${String(suratPesanan.length + 1).padStart(3, '0')}/SP/TPK-DS/${new Date().getFullYear()}`;
 
   return `
     <div class="max-w-5xl mx-auto space-y-6">
@@ -2313,7 +2376,7 @@ function saveSpForm(e) {
     status: 'Diproses'
   };
 
-  let updatedList = [...appState.data.suratPesanan];
+  let updatedList = [...ensureArray(appState.data.suratPesanan)];
   if (appState.editingSpId) {
     updatedList = updatedList.map(s => s.id === appState.editingSpId ? newSp : s);
   } else {
@@ -2335,16 +2398,22 @@ function saveSpForm(e) {
 
 // --- VIEW: BAST LIST ---
 function renderBastListView() {
-  const pelaksanaList = appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList;
-  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p.id === appState.activePelaksanaId) : null;
+  const data = appState.data || {};
+  const suratPesanan = ensureArray(data.suratPesanan);
+  const bastList = ensureArray(data.bastList);
+  const suppliers = ensureArray(data.suppliers);
+  const profilDesa = data.profilDesa || defaultData.profilDesa;
+  const pelaksanaList = ensureArray(profilDesa.pelaksanaList);
+  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p && p.id === appState.activePelaksanaId) : null;
 
   const bastListFiltered = activePk 
-    ? appState.data.bastList.filter(b => {
-        const sp = appState.data.suratPesanan.find(s => s.id === b.spId);
+    ? bastList.filter(b => {
+        if (!b) return false;
+        const sp = suratPesanan.find(s => s && s.id === b.spId);
         if (!sp) return false;
         return (sp.pemesanNama && sp.pemesanNama === activePk.nama) || (b.ketuaTpk && b.ketuaTpk === activePk.nama);
       })
-    : appState.data.bastList;
+    : bastList;
 
   return `
     <div class="space-y-6">
@@ -2392,8 +2461,9 @@ function renderBastListView() {
               ${bastListFiltered.length === 0 ? `
                 <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">Belum ada dokumen BAST yang terbuat untuk filter ini.</td></tr>
               ` : bastListFiltered.map(bast => {
-                const sp = appState.data.suratPesanan.find(s => s.id === bast.spId) || {};
-                const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
+                if (!bast) return '';
+                const sp = suratPesanan.find(s => s && s.id === bast.spId) || {};
+                const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
                 return `
                   <tr class="hover:bg-blue-50/50">
                     <td class="px-5 py-4">
@@ -2442,13 +2512,14 @@ function renderBastListView() {
 }
 
 function deleteBast(id) {
-  const bast = appState.data.bastList.find(b => b.id === id);
+  const bastList = ensureArray(appState.data.bastList);
+  const bast = bastList.find(b => b && b.id === id);
   const nomor = bast ? bast.nomorBast : 'BAST ini';
   showConfirmModal('Hapus Berita Acara (BAST)?', `Yakin ingin menghapus BAST ${nomor}? Data yang dihapus tidak dapat dikembalikan.`, () => {
     setState({
       data: {
         ...appState.data,
-        bastList: appState.data.bastList.filter(b => b.id !== id)
+        bastList: bastList.filter(b => b && b.id !== id)
       },
       confirmModal: null
     });
@@ -2462,16 +2533,20 @@ function createBastFromSp(spId) {
 // --- VIEW: BAST FORM ---
 function renderBastFormView() {
   const selectedSpId = appState.selectedSpIdForBast || '';
-  const pelaksanaList = appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList;
-  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p.id === appState.activePelaksanaId) : null;
+  const data = appState.data || {};
+  const suratPesanan = ensureArray(data.suratPesanan);
+  const bastList = ensureArray(data.bastList);
+  const profilDesa = data.profilDesa || defaultData.profilDesa;
+  const pelaksanaList = ensureArray(profilDesa.pelaksanaList).length > 0 ? ensureArray(profilDesa.pelaksanaList) : defaultData.profilDesa.pelaksanaList;
+  const activePk = appState.activePelaksanaId !== 'all' ? pelaksanaList.find(p => p && p.id === appState.activePelaksanaId) : null;
   const spOptions = activePk 
-    ? appState.data.suratPesanan.filter(s => s.pemesanNama && s.pemesanNama === activePk.nama)
-    : appState.data.suratPesanan;
+    ? suratPesanan.filter(s => s && s.pemesanNama && s.pemesanNama === activePk.nama)
+    : suratPesanan;
 
-  const defaultNomorBast = `027/${String(appState.data.bastList.length + 1).padStart(3, '0')}/BAST/TPK-DS/${new Date().getFullYear()}`;
-  const defaultNomorBapb = `027/${String(appState.data.bastList.length + 1).padStart(3, '0')}/BAPB/TPK-DS/${new Date().getFullYear()}`;
+  const defaultNomorBast = `027/${String(bastList.length + 1).padStart(3, '0')}/BAST/TPK-DS/${new Date().getFullYear()}`;
+  const defaultNomorBapb = `027/${String(bastList.length + 1).padStart(3, '0')}/BAPB/TPK-DS/${new Date().getFullYear()}`;
 
-  const defaultPemesanNama = appState.data.profilDesa.tpkNama || '';
+  const defaultPemesanNama = profilDesa.tpkNama || '';
 
   return `
     <div class="max-w-3xl mx-auto space-y-6">
@@ -2570,13 +2645,15 @@ function saveBastForm(e) {
     statusCatatan: 'Baik & Lengkap'
   };
 
-  const updatedSpList = appState.data.suratPesanan.map(s => s.id === spId ? { ...s, status: 'Selesai' } : s);
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const bastList = ensureArray(appState.data.bastList);
+  const updatedSpList = suratPesanan.map(s => s && s.id === spId ? { ...s, status: 'Selesai' } : s);
 
   setState({
     data: {
       ...appState.data,
       suratPesanan: updatedSpList,
-      bastList: [newBast, ...appState.data.bastList]
+      bastList: [newBast, ...bastList]
     },
     currentView: 'bast-list',
     selectedSpIdForBast: null
@@ -3989,11 +4066,14 @@ function renderSpPrintTemplate(spId) {
 
 // TEMPLATE 2: BERITA ACARA SERAH TERIMA (BAST)
 function renderBastPrintTemplate(bastId) {
-  const bast = appState.data.bastList.find(b => b.id === bastId);
+  const bastList = ensureArray(appState.data.bastList);
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const suppliers = ensureArray(appState.data.suppliers);
+  const bast = bastList.find(b => b && b.id === bastId);
   if (!bast) return '<div class="text-red-500">BAST tidak ditemukan.</div>';
-  const sp = appState.data.suratPesanan.find(s => s.id === bast.spId) || {};
-  const p = appState.data.profilDesa;
-  const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
+  const sp = suratPesanan.find(s => s && s.id === bast.spId) || {};
+  const p = appState.data.profilDesa || defaultData.profilDesa;
+  const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
 
   const pemesanNama = sp.pemesanNama || bast.ketuaTpk || p.tpkNama;
   const pemesanJabatan = sp.pemesanJabatan || 'Ketua TPK';
@@ -4093,11 +4173,14 @@ function renderBastPrintTemplate(bastId) {
 
 // TEMPLATE 3: BERITA ACARA PEMERIKSAAN BARANG (BAPB)
 function renderBapbPrintTemplate(bastId) {
-  const bast = appState.data.bastList.find(b => b.id === bastId);
+  const bastList = ensureArray(appState.data.bastList);
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const suppliers = ensureArray(appState.data.suppliers);
+  const bast = bastList.find(b => b && b.id === bastId);
   if (!bast) return '<div class="text-red-500">BAPB tidak ditemukan.</div>';
-  const sp = appState.data.suratPesanan.find(s => s.id === bast.spId) || {};
-  const p = appState.data.profilDesa;
-  const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
+  const sp = suratPesanan.find(s => s && s.id === bast.spId) || {};
+  const p = appState.data.profilDesa || defaultData.profilDesa;
+  const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
 
   const pemesanNama = sp.pemesanNama || bast.ketuaTpk || p.tpkNama;
   const pemesanJabatan = sp.pemesanJabatan || 'Tim Pengelola / Pelaksana Kegiatan';
@@ -4181,11 +4264,14 @@ function renderBapbPrintTemplate(bastId) {
 
 // TEMPLATE 4: KWITANSI PEMBAYARAN DESA
 function renderKwitansiPrintTemplate(bastId) {
-  const bast = appState.data.bastList.find(b => b.id === bastId);
+  const bastList = ensureArray(appState.data.bastList);
+  const suratPesanan = ensureArray(appState.data.suratPesanan);
+  const suppliers = ensureArray(appState.data.suppliers);
+  const bast = bastList.find(b => b && b.id === bastId);
   if (!bast) return '<div class="text-red-500">Kwitansi tidak ditemukan.</div>';
-  const sp = appState.data.suratPesanan.find(s => s.id === bast.spId) || {};
-  const p = appState.data.profilDesa;
-  const sup = appState.data.suppliers.find(s => s.id === sp.supplierId) || {};
+  const sp = suratPesanan.find(s => s && s.id === bast.spId) || {};
+  const p = appState.data.profilDesa || defaultData.profilDesa;
+  const sup = suppliers.find(s => s && s.id === sp.supplierId) || {};
 
   return `
     <div class="print-page space-y-1.5">
