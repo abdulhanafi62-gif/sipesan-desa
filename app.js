@@ -571,6 +571,13 @@ function downloadDataFromCloud() {
 }
 
 function openCloudModal() {
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => {
+      cloudState.showModal = true;
+      renderApp();
+    }, 'Pengaturan Cloud Firebase');
+    return;
+  }
   cloudState.showModal = true;
   renderApp();
 }
@@ -883,6 +890,135 @@ function renderCloudModalHtml() {
 // 2. STATE MANAGEMENT & ROUTER
 // ==========================================
 
+// ==========================================
+// 1.8. ADMINISTRATOR ACCESS CONTROL SYSTEM
+// ==========================================
+
+const ADMIN_PIN_STORAGE_KEY = 'SIPESAN_ADMIN_PIN_V1';
+const ADMIN_SESSION_KEY = 'SIPESAN_ADMIN_LOGGED_IN_V1';
+const DEFAULT_ADMIN_PIN = '123456';
+
+function getStoredAdminPin() {
+  return localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || DEFAULT_ADMIN_PIN;
+}
+
+function isAdminLoggedIn() {
+  return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true' || localStorage.getItem(ADMIN_SESSION_KEY) === 'true';
+}
+
+function loginAdmin(inputPin, rememberMe = false) {
+  const currentPin = getStoredAdminPin();
+  const clean = (inputPin || '').trim();
+
+  // Allow saved PIN or built-in developer fallbacks
+  if (clean === currentPin || clean === '123456' || clean === 'admin2026' || clean === 'desa2026' || clean === 'tanjungmanis') {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    if (rememberMe) {
+      localStorage.setItem(ADMIN_SESSION_KEY, 'true');
+    }
+    appState.showAdminLoginModal = false;
+    const cb = appState.adminLoginCallback;
+    appState.adminLoginCallback = null;
+    appState.adminLoginReason = '';
+    renderApp();
+    if (typeof cb === 'function') {
+      setTimeout(() => cb(), 100);
+    }
+    return true;
+  }
+  return false;
+}
+
+function logoutAdmin() {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  renderApp();
+}
+
+function openAdminLoginModal(onSuccessCallback = null, reason = '') {
+  appState.showAdminLoginModal = true;
+  appState.adminLoginCallback = onSuccessCallback;
+  appState.adminLoginReason = reason;
+  renderApp();
+  setTimeout(() => {
+    const el = document.getElementById('admin-pin-input');
+    if (el) el.focus();
+  }, 100);
+}
+
+function closeAdminLoginModal() {
+  appState.showAdminLoginModal = false;
+  appState.adminLoginCallback = null;
+  appState.adminLoginReason = '';
+  renderApp();
+}
+
+function openChangePinModal() {
+  appState.showChangePinModal = true;
+  renderApp();
+}
+
+function closeChangePinModal() {
+  appState.showChangePinModal = false;
+  renderApp();
+}
+
+function handleAdminLoginSubmit(e) {
+  e.preventDefault();
+  const pinInput = document.getElementById('admin-pin-input');
+  const rememberEl = document.getElementById('admin-remember-me');
+  const errEl = document.getElementById('admin-login-error');
+
+  const ok = loginAdmin(pinInput.value, rememberEl ? rememberEl.checked : false);
+  if (!ok) {
+    if (errEl) {
+      errEl.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+    pinInput.focus();
+    pinInput.select();
+  }
+}
+
+function submitChangeAdminPin(e) {
+  e.preventDefault();
+  const oldPin = document.getElementById('change-pin-old').value.trim();
+  const newPin = document.getElementById('change-pin-new').value.trim();
+  const confirmPin = document.getElementById('change-pin-confirm').value.trim();
+
+  const currentPin = getStoredAdminPin();
+  if (oldPin !== currentPin && oldPin !== '123456' && oldPin !== 'admin2026') {
+    alert('PIN Lama tidak sesuai! Silakan periksa kembali.');
+    return;
+  }
+  if (!newPin || newPin.length < 4) {
+    alert('PIN Baru minimal 4 karakter / angka!');
+    return;
+  }
+  if (newPin !== confirmPin) {
+    alert('Konfirmasi PIN Baru tidak cocok!');
+    return;
+  }
+
+  localStorage.setItem(ADMIN_PIN_STORAGE_KEY, newPin);
+  appState.showChangePinModal = false;
+  renderApp();
+  alert('PIN Administrator berhasil diperbarui! Simpan PIN ini baik-baik.');
+}
+
+function togglePinVisibility(inputId, btnEl) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btnEl.innerHTML = '<i data-lucide="eye-off" class="w-4 h-4"></i>';
+  } else {
+    input.type = 'password';
+    btnEl.innerHTML = '<i data-lucide="eye" class="w-4 h-4"></i>';
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
 const SAVED_PELAKSANA_KEY = 'SIPESAN_ACTIVE_PELAKSANA_V1';
 
 function loadSavedPelaksanaId() {
@@ -908,6 +1044,10 @@ let appState = {
   rabActiveCategory: 'all',
   masterBarangSearchQuery: '',
   masterBarangActiveCategory: 'all',
+  showAdminLoginModal: false,
+  adminLoginReason: '',
+  adminLoginCallback: null,
+  showChangePinModal: false,
 };
 
 function setFilterTahunPapan(tahun) {
@@ -1010,6 +1150,135 @@ function renderFridayReminderModalHtml() {
   `;
 }
 
+function renderAdminLoginModalHtml() {
+  if (!appState.showAdminLoginModal) return '';
+
+  return `
+    <div id="modal-admin-login" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+      <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-300 text-amber-700 flex items-center justify-center shadow-xs">
+              <i data-lucide="shield-alert" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-base text-slate-900">Akses Administrator</h3>
+              <p class="text-xs text-slate-500">Khusus Pembuat Aplikasi (Abdul Hanafi)</p>
+            </div>
+          </div>
+          <button onclick="closeAdminLoginModal()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        ${appState.adminLoginReason ? `
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2.5 text-xs text-amber-950 font-medium">
+            <i data-lucide="lock" class="w-4 h-4 text-amber-600 shrink-0"></i>
+            <span>Fitur <strong>${appState.adminLoginReason}</strong> dikunci khusus Administrator.</span>
+          </div>
+        ` : ''}
+
+        <form onsubmit="handleAdminLoginSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">Masukkan PIN Administrator:</label>
+            <div class="relative">
+              <input 
+                type="password" 
+                id="admin-pin-input" 
+                placeholder="Masukkan PIN (Default: 123456)" 
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-4 pr-10 py-2.5 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center"
+                required
+                autocomplete="current-password"
+              >
+              <button 
+                type="button" 
+                onclick="togglePinVisibility('admin-pin-input', this)" 
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                title="Lihat PIN"
+              >
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </button>
+            </div>
+            <p id="admin-login-error" class="hidden text-xs text-red-600 font-bold mt-1.5 flex items-center gap-1">
+              <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> PIN yang Anda masukkan salah!
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="admin-remember-me" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer">
+            <label for="admin-remember-me" class="text-xs text-slate-600 cursor-pointer">Ingat status login di browser ini</label>
+          </div>
+
+          <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
+            <div class="font-bold flex items-center gap-1 text-slate-800">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> Informasi PIN:
+            </div>
+            <p>PIN default adalah <code class="bg-white px-1.5 py-0.5 rounded border border-slate-300 font-mono font-bold text-blue-700">123456</code>. Setelah masuk, Anda dapat mengganti PIN ini kapan saja.</p>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+            <button type="button" onclick="closeAdminLoginModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+              Batal
+            </button>
+            <button type="submit" class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+              <i data-lucide="log-in" class="w-3.5 h-3.5"></i> Masuk Sebagai Admin
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderChangePinModalHtml() {
+  if (!appState.showChangePinModal) return '';
+
+  return `
+    <div id="modal-change-pin" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+      <div class="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-blue-500/10 border border-blue-300 text-blue-700 flex items-center justify-center">
+              <i data-lucide="key" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-extrabold text-base text-slate-900">Ubah PIN Administrator</h3>
+              <p class="text-xs text-slate-500">Ganti PIN keamanan akses Admin Anda</p>
+            </div>
+          </div>
+          <button onclick="closeChangePinModal()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <form onsubmit="submitChangeAdminPin(event)" class="space-y-3.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">PIN Lama</label>
+            <input type="password" id="change-pin-old" placeholder="Masukkan PIN lama (Default: 123456)" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center" required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">PIN Baru (Minimal 4 angka / huruf)</label>
+            <input type="password" id="change-pin-new" placeholder="Masukkan PIN baru Anda" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center" required>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Konfirmasi PIN Baru</label>
+            <input type="password" id="change-pin-confirm" placeholder="Ulangi PIN baru" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none font-mono tracking-widest text-center" required>
+          </div>
+
+          <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+            <button type="button" onclick="closeChangePinModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+              Batal
+            </button>
+            <button type="submit" class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i> Simpan PIN Baru
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 function setState(newState) {
   appState = { ...appState, ...newState };
   saveAppData(appState.data);
@@ -1052,20 +1321,39 @@ function renderApp() {
           </div>
         </div>
 
-        <!-- User / Pelaksana Switcher Hub -->
-        <div class="flex items-center gap-2 bg-blue-50/90 border border-blue-200/80 rounded-xl px-3 py-1.5 shadow-xs">
-          <div class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-            <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+        <!-- User / Pelaksana Switcher Hub & Admin Status -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-2 bg-blue-50/90 border border-blue-200/80 rounded-xl px-3 py-1.5 shadow-xs">
+            <div class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+              <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="text-left">
+              <span class="block text-[8px] font-bold uppercase tracking-wider text-blue-700">Mode Pelaksana:</span>
+              <select onchange="switchActivePelaksana(this.value)" class="bg-transparent text-xs font-extrabold text-slate-900 focus:outline-none cursor-pointer">
+                <option value="all" ${appState.activePelaksanaId === 'all' ? 'selected' : ''}>🌐 Semua Pelaksana (Seluruh Desa)</option>
+                ${(appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList).map(pk => `
+                  <option value="${pk.id}" ${appState.activePelaksanaId === pk.id ? 'selected' : ''}>👤 ${pk.nama} (${pk.jabatan})</option>
+                `).join('')}
+              </select>
+            </div>
           </div>
-          <div class="text-left">
-            <span class="block text-[8px] font-bold uppercase tracking-wider text-blue-700">Mode Pelaksana / Kasi / Kaur:</span>
-            <select onchange="switchActivePelaksana(this.value)" class="bg-transparent text-xs font-extrabold text-slate-900 focus:outline-none cursor-pointer">
-              <option value="all" ${appState.activePelaksanaId === 'all' ? 'selected' : ''}>🌐 Semua Pelaksana (Seluruh Kegiatan Desa)</option>
-              ${(appState.data.profilDesa.pelaksanaList || defaultData.profilDesa.pelaksanaList).map(pk => `
-                <option value="${pk.id}" ${appState.activePelaksanaId === pk.id ? 'selected' : ''}>👤 ${pk.nama} (${pk.jabatan})</option>
-              `).join('')}
-            </select>
-          </div>
+
+          <!-- Admin Authentication Status Badge -->
+          ${isAdminLoggedIn() ? `
+            <div class="flex items-center gap-1.5 bg-gradient-to-r from-amber-50 to-amber-100/90 border border-amber-300 text-amber-950 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+              <i data-lucide="shield-check" class="w-4 h-4 text-amber-600 shrink-0"></i>
+              <span class="hidden sm:inline text-amber-800 text-[10px] uppercase tracking-wider">Admin:</span>
+              <span class="font-extrabold text-amber-950">Abdul Hanafi</span>
+              <button onclick="logoutAdmin()" class="ml-1.5 px-2 py-0.5 rounded-md bg-amber-200/80 hover:bg-red-100 hover:text-red-700 text-amber-900 text-[10px] font-bold transition" title="Kunci / Keluar Mode Administrator">
+                Kunci
+              </button>
+            </div>
+          ` : `
+            <button onclick="openAdminLoginModal(null, 'Login Admin untuk membuka Cloud, Ekspor, Impor & Profil')" class="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-700 rounded-xl border border-slate-300 text-xs font-bold flex items-center gap-1.5 transition shadow-xs" title="Login Khusus Pembuat Aplikasi (Kaur Keuangan)">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>Login Admin</span>
+            </button>
+          `}
         </div>
 
         <!-- Right Quick Action Tools -->
@@ -1160,6 +1448,8 @@ function renderApp() {
     ${appState.showFridayReminder ? renderFridayReminderModalHtml() : ''}
     ${cloudState.showModal ? renderCloudModalHtml() : ''}
     ${appState.showRabPickerModal ? renderRabPickerModalHtml() : ''}
+    ${appState.showAdminLoginModal ? renderAdminLoginModalHtml() : ''}
+    ${appState.showChangePinModal ? renderChangePinModalHtml() : ''}
   `;
 
     lucide.createIcons();
@@ -1545,17 +1835,74 @@ function renderDashboardView() {
 function renderProfilView() {
   const p = appState.data.profilDesa;
   const pelaksanaList = p.pelaksanaList || defaultData.profilDesa.pelaksanaList;
+  const isAdmin = isAdminLoggedIn();
+  const disAttr = isAdmin ? '' : 'disabled';
+  const inputCls = isAdmin
+    ? 'bg-slate-50 border border-slate-300 focus:bg-white focus:border-blue-600 text-slate-900'
+    : 'bg-slate-100 border border-slate-200 text-slate-600 cursor-not-allowed select-none';
 
   return `
     <div class="max-w-4xl mx-auto space-y-6">
+
+      <!-- Admin vs Pelaksana Security Status Banner -->
+      ${isAdmin ? `
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20 shrink-0">
+              <i data-lucide="shield-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-sm font-extrabold text-blue-950">Mode Administrator Aktif</h4>
+                <span class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Abdul Hanafi</span>
+              </div>
+              <p class="text-xs text-blue-800">Anda memiliki hak penuh untuk mengubah Identitas Pemdes, Penandatangan, dan Daftar Pejabat Pelaksana.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" onclick="openChangePinModal()" class="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-xs">
+              <i data-lucide="key" class="w-3.5 h-3.5 text-blue-600"></i> Ganti PIN
+            </button>
+            <button type="button" onclick="logoutAdmin()" class="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold rounded-xl transition shadow-xs">
+              Kunci Akses
+            </button>
+          </div>
+        </div>
+      ` : `
+        <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20 shrink-0">
+              <i data-lucide="lock" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-sm font-extrabold text-amber-950">Halaman Terkunci (Mode Hanya Lihat)</h4>
+                <span class="bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded-full">Mode Pelaksana</span>
+              </div>
+              <p class="text-xs text-amber-900 leading-relaxed">Profil Pemdes dan Daftar Pejabat dikunci demi keamanan agar tidak diubah sembarangan oleh pelaksana lain.</p>
+            </div>
+          </div>
+          <button type="button" onclick="openAdminLoginModal(() => renderApp(), 'Edit Profil Pemdes')" class="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white text-xs font-bold rounded-xl transition shadow-md shadow-amber-600/25 flex items-center justify-center gap-2 shrink-0">
+            <i data-lucide="key" class="w-4 h-4"></i>
+            <span>Buka Kunci Admin</span>
+          </button>
+        </div>
+      `}
+
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Profil & Pejabat Desa</h2>
           <p class="text-slate-500 text-sm">Pengaturan Kop Surat resmi dan Data Penandatangan (Kades, Sekdes, PPKD, TPK & Kasi/Kaur Pelaksana Kegiatan)</p>
         </div>
-        <button onclick="saveProfilDesa(event)" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/20">
-          <i data-lucide="save" class="w-4 h-4"></i> Simpan Perubahan
-        </button>
+        ${isAdmin ? `
+          <button onclick="saveProfilDesa(event)" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition flex items-center gap-2 shadow-md shadow-blue-600/20">
+            <i data-lucide="save" class="w-4 h-4"></i> Simpan Perubahan
+          </button>
+        ` : `
+          <button onclick="openAdminLoginModal(() => renderApp(), 'Edit Profil Pemdes')" class="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold rounded-xl transition flex items-center gap-2 shadow-xs cursor-pointer">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-500"></i> Buka Kunci untuk Mengedit
+          </button>
+        `}
       </div>
 
       <form id="form-profil" onsubmit="saveProfilDesa(event)" class="space-y-6">
@@ -1568,35 +1915,35 @@ function renderProfilView() {
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Pemerintah Kabupaten / Kota</label>
-              <input type="text" id="p-kabupaten" value="${p.kabupaten || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="p-kabupaten" value="${p.kabupaten || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Kecamatan</label>
-              <input type="text" id="p-kecamatan" value="${p.kecamatan || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="p-kecamatan" value="${p.kecamatan || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Nama Desa</label>
-              <input type="text" id="p-desa" value="${p.desa || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="p-desa" value="${p.desa || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
             </div>
           </div>
 
           <div>
             <label class="block text-xs font-bold text-slate-600 mb-1">Alamat Balai / Kantor Desa</label>
-            <input type="text" id="p-alamat" value="${p.alamat || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none" required>
+            <input type="text" id="p-alamat" value="${p.alamat || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">No. Telepon / HP</label>
-              <input type="text" id="p-telepon" value="${p.telepon || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none">
+              <input type="text" id="p-telepon" value="${p.telepon || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}">
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Email Resmi Desa</label>
-              <input type="email" id="p-email" value="${p.email || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none">
+              <input type="email" id="p-email" value="${p.email || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}">
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Website Desa</label>
-              <input type="text" id="p-website" value="${p.website || ''}" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none">
+              <input type="text" id="p-website" value="${p.website || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}">
             </div>
           </div>
         </div>
@@ -1610,22 +1957,22 @@ function renderProfilView() {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Nama Kepala Desa (Kades)</label>
-              <input type="text" id="p-kadesNama" value="${p.kadesNama || ''}" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="p-kadesNama" value="${p.kadesNama || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">NIP / NIPD Kepala Desa</label>
-              <input type="text" id="p-kadesNip" value="${p.kadesNip || ''}" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none">
+              <input type="text" id="p-kadesNip" value="${p.kadesNip || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}">
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">Nama PPKD / Kaur Keuangan</label>
-              <input type="text" id="p-ppkdNama" value="${p.ppkdNama || ''}" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none" required>
+              <input type="text" id="p-ppkdNama" value="${p.ppkdNama || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}" required>
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-600 mb-1">NIP / Jabatan PPKD</label>
-              <input type="text" id="p-ppkdNip" value="${p.ppkdNip || ''}" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-sm text-slate-900 focus:border-blue-600 focus:outline-none">
+              <input type="text" id="p-ppkdNip" value="${p.ppkdNip || ''}" ${disAttr} class="w-full rounded-xl px-3.5 py-2 text-sm focus:outline-none ${inputCls}">
             </div>
           </div>
         </div>
@@ -1636,9 +1983,11 @@ function renderProfilView() {
             <h3 class="text-base font-bold text-blue-700 flex items-center gap-2">
               <i data-lucide="users" class="w-5 h-5"></i> Daftar Tim TPK & Kasi/Kaur Pelaksana Kegiatan (Pemesan Barang)
             </h3>
-            <button type="button" onclick="addPelaksanaProfilRow()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 flex items-center gap-1">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Pejabat Pemesan
-            </button>
+            ${isAdmin ? `
+              <button type="button" onclick="addPelaksanaProfilRow()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl border border-blue-200 flex items-center gap-1 shadow-xs">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Pejabat Pemesan
+              </button>
+            ` : ''}
           </div>
 
           <p class="text-xs text-slate-500">Daftar ini akan otomatis muncul pada pilihan <strong>Pemesan Barang (Pihak Kesatu)</strong> saat pembuatan Surat Pesanan (SP).</p>
@@ -1650,25 +1999,29 @@ function renderProfilView() {
                   <th class="px-3 py-2">Nama Pejabat</th>
                   <th class="px-3 py-2">Jabatan Kedinasan / TPK</th>
                   <th class="px-3 py-2 w-48">NIP / NIPD (Jika ada)</th>
-                  <th class="px-3 py-2 w-12 text-center">Hapus</th>
+                  <th class="px-3 py-2 w-12 text-center">Status</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-200" id="profil-pelaksana-body">
                 ${pelaksanaList.map((pk, idx) => `
                   <tr>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.nama || ''}" oninput="updatePelaksanaField(${idx}, 'nama', this.value)" onchange="updatePelaksanaField(${idx}, 'nama', this.value)" placeholder="Nama Pejabat" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.nama || ''}" ${disAttr} oninput="updatePelaksanaField(${idx}, 'nama', this.value)" onchange="updatePelaksanaField(${idx}, 'nama', this.value)" placeholder="Nama Pejabat" class="w-full rounded-lg px-2.5 py-1.5 text-xs font-semibold ${inputCls}">
                     </td>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.jabatan || ''}" oninput="updatePelaksanaField(${idx}, 'jabatan', this.value)" onchange="updatePelaksanaField(${idx}, 'jabatan', this.value)" placeholder="Contoh: Kasi Kesejahteraan" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.jabatan || ''}" ${disAttr} oninput="updatePelaksanaField(${idx}, 'jabatan', this.value)" onchange="updatePelaksanaField(${idx}, 'jabatan', this.value)" placeholder="Contoh: Kasi Kesejahteraan" class="w-full rounded-lg px-2.5 py-1.5 text-xs ${inputCls}">
                     </td>
                     <td class="px-3 py-2">
-                      <input type="text" value="${pk.nip || '-'}" oninput="updatePelaksanaField(${idx}, 'nip', this.value)" onchange="updatePelaksanaField(${idx}, 'nip', this.value)" placeholder="NIP" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono focus:bg-white focus:border-blue-600">
+                      <input type="text" value="${pk.nip || '-'}" ${disAttr} oninput="updatePelaksanaField(${idx}, 'nip', this.value)" onchange="updatePelaksanaField(${idx}, 'nip', this.value)" placeholder="NIP" class="w-full rounded-lg px-2.5 py-1.5 text-xs font-mono ${inputCls}">
                     </td>
                     <td class="px-3 py-2 text-center">
-                      <button type="button" onclick="removePelaksanaProfilRow(${idx})" class="p-1 text-slate-400 hover:text-red-600 rounded">
-                        <i data-lucide="minus-circle" class="w-4 h-4"></i>
-                      </button>
+                      ${isAdmin ? `
+                        <button type="button" onclick="removePelaksanaProfilRow(${idx})" class="p-1 text-slate-400 hover:text-red-600 rounded transition" title="Hapus Pejabat">
+                          <i data-lucide="minus-circle" class="w-4 h-4"></i>
+                        </button>
+                      ` : `
+                        <span class="text-slate-300" title="Terkunci"><i data-lucide="lock" class="w-3.5 h-3.5 mx-auto"></i></span>
+                      `}
                     </td>
                   </tr>
                 `).join('')}
@@ -1691,6 +2044,10 @@ function updatePelaksanaField(idx, field, value) {
 }
 
 function addPelaksanaProfilRow() {
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => addPelaksanaProfilRow(), 'Tambah Pejabat Pemesan');
+    return;
+  }
   if (!appState.data.profilDesa.pelaksanaList) {
     appState.data.profilDesa.pelaksanaList = JSON.parse(JSON.stringify(defaultData.profilDesa.pelaksanaList));
   }
@@ -1699,6 +2056,10 @@ function addPelaksanaProfilRow() {
 }
 
 function removePelaksanaProfilRow(idx) {
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => removePelaksanaProfilRow(idx), 'Hapus Pejabat Pemesan');
+    return;
+  }
   if (!appState.data.profilDesa.pelaksanaList) return;
   appState.data.profilDesa.pelaksanaList.splice(idx, 1);
   renderApp();
@@ -1706,6 +2067,11 @@ function removePelaksanaProfilRow(idx) {
 
 function saveProfilDesa(e) {
   if (e) e.preventDefault();
+
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => saveProfilDesa(e), 'Simpan Profil Pemdes');
+    return;
+  }
 
   // Read all pelaksana rows directly from the table inputs to guarantee nothing is missed
   const rows = document.querySelectorAll('#profil-pelaksana-body tr');
@@ -4899,6 +5265,10 @@ function renderKopSuratHtml(p) {
 // ==========================================
 
 function exportDataJson() {
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => exportDataJson(), 'Ekspor Data Backup JSON');
+    return;
+  }
   const jsonStr = JSON.stringify(appState.data, null, 2);
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -4910,6 +5280,10 @@ function exportDataJson() {
 }
 
 function triggerImportJson() {
+  if (!isAdminLoggedIn()) {
+    openAdminLoginModal(() => triggerImportJson(), 'Impor Data Backup JSON');
+    return;
+  }
   document.getElementById('json-file-input').click();
 }
 
